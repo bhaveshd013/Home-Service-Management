@@ -1,0 +1,71 @@
+package com.home.service.controller;
+
+import com.home.service.model.Booking;
+import com.home.service.model.User;
+import com.home.service.repository.BookingRepository;
+import com.home.service.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/bookings")
+@CrossOrigin(origins = "http://localhost:5173")
+public class BookingController {
+
+    @Autowired
+    private BookingRepository bookingRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    // ✅ Create a new booking
+    @PostMapping("/create")
+    public ResponseEntity<String> createBooking(@RequestBody Booking booking) {
+        Optional<User> customer = userRepository.findById(booking.getCustomer().getId());
+        Optional<User> provider = userRepository.findById(booking.getProvider().getId());
+
+        if (customer.isPresent() && provider.isPresent()) {
+            // ✅ Check if provider is available for the selected date and time
+            boolean isAvailable = bookingRepository
+                .findByProviderIdAndDateAndTimeSlot(booking.getProvider().getId(), booking.getDate(), booking.getTimeSlot())
+                .isEmpty();
+
+            if (!isAvailable) {
+                return ResponseEntity.status(400).body("Service provider is not available at this time.");
+            }
+
+            booking.setStatus("Pending");
+            bookingRepository.save(booking);
+            return ResponseEntity.ok("Booking successful!");
+        } else {
+            return ResponseEntity.status(400).body("Invalid customer or provider.");
+        }
+    }
+
+    // ✅ Get bookings for a customer
+    @GetMapping("/customer/{customerId}")
+    public List<Booking> getCustomerBookings(@PathVariable Long customerId) {
+        return bookingRepository.findByCustomerId(customerId);
+    }
+
+    // ✅ Get bookings for a service provider
+    @GetMapping("/provider/{providerId}/current")
+    public List<Booking> getCurrentBookings(@PathVariable Long providerId) {
+        return bookingRepository.findByProviderIdAndStatus(providerId, "Pending");
+    }
+
+    @GetMapping("/provider/{providerId}/completed")
+    public List<Booking> getCompletedBookings(@PathVariable Long providerId) {
+        return bookingRepository.findByProviderIdAndStatus(providerId, "Completed");
+    }
+
+    // ✅ Get all bookings for Admin
+    @GetMapping("/admin/all")
+    public List<Booking> getAllBookings() {
+        return bookingRepository.findAll();
+    }
+}

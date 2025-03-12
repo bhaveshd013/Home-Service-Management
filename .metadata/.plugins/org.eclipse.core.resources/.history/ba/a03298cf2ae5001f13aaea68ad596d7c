@@ -1,0 +1,46 @@
+package com.home.service.controller;
+
+import com.home.service.model.Review;
+import com.home.service.model.User;
+import com.home.service.repository.ReviewRepository;
+import com.home.service.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/reviews")
+@CrossOrigin(origins = "http://localhost:5173")
+public class ReviewController {
+
+    @Autowired
+    private ReviewRepository reviewRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    // ✅ Save a Review
+    @PostMapping("/add")
+    public ResponseEntity<String> addReview(@RequestBody Review review) {
+        User customer = userRepository.findById(review.getCustomer().getId()).orElse(null);
+        User provider = userRepository.findById(review.getProvider().getId()).orElse(null);
+
+        if (customer == null || provider == null) {
+            return ResponseEntity.badRequest().body("Invalid customer or provider");
+        }
+
+        review.setTimestamp(LocalDateTime.now());
+        reviewRepository.save(review);
+        return ResponseEntity.ok("Review added successfully!");
+    }
+
+    // ✅ Get Reviews for a Service Provider
+    @GetMapping("/provider/{providerId}")
+    public ResponseEntity<List<Review>> getProviderReviews(@PathVariable Long providerId) {
+        List<Review> reviews = reviewRepository.findByProviderId(providerId);
+        return ResponseEntity.ok(reviews);
+    }
+}

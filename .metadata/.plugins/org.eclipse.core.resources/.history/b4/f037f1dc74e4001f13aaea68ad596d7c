@@ -1,0 +1,59 @@
+package com.home.service.service;
+
+import com.home.service.model.Role;
+import com.home.service.model.User;
+import com.home.service.repository.UserRepository;
+import com.home.service.security.JwtUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+@Service
+public class AuthService {
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private JwtUtil jwtUtil;
+
+    public String registerUser(User user) {
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        userRepository.save(user);
+        return "User registered successfully!";
+    }
+
+    public Map<String, String> loginUser(String username, String password) {
+        Optional<User> userOptional = userRepository.findByUsername(username);
+
+        // 🛑 If username does not exist, return error
+        if (userOptional.isEmpty()) {
+            throw new RuntimeException("Invalid username or password");
+        }
+
+        User user = userOptional.get();
+
+        // 🛑 Check if the entered password matches the hashed password
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new RuntimeException("Invalid username or password");
+        }
+
+        // ✅ If everything is correct, generate JWT token
+        String token = jwtUtil.generateToken(username);
+
+        // ✅ Return token and role in a map
+        Map<String, String> response = new HashMap<>();
+        response.put("token", token);
+        response.put("role", user.getRole().name()); // CUSTOMER, SERVICE_PROVIDER, or ADMIN
+        response.put("Id", user.getId());
+        return response;
+    }
+
+
+}

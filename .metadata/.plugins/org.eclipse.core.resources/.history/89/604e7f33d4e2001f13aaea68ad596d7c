@@ -1,0 +1,16 @@
+spring.application.name=backend
+
+# Database Configuration
+spring.datasource.url=jdbc:mysql://localhost:3306/home_service_db
+spring.datasource.username=root
+spring.datasource.password=yourpassword
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+
+# Server Config
+server.port=8080
+
+# JWT Secret Key
+jwt.secret=MySecretKeyForJWT
+jwt.expiration=86400000  # Token expires in 1 day (24 hours)
+

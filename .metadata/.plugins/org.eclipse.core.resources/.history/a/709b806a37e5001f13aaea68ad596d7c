@@ -1,0 +1,43 @@
+package com.home.service.controller;
+
+import com.home.service.model.Role;
+import com.home.service.model.User;
+import com.home.service.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/service-providers")
+@CrossOrigin(origins = "http://localhost:5173")
+public class ServiceProviderController {
+
+    @Autowired
+    private UserRepository userRepository;
+
+    // ✅ Existing API: Fetch service providers by service type
+    @GetMapping("/{serviceType}")
+    public List<User> getServiceProviders(@PathVariable String serviceType) {
+        return userRepository.findByRoleAndServiceType(Role.SERVICE_PROVIDER, serviceType);
+    }
+    
+    @GetMapping("/service")
+    public List<User> getAllServiceProviders(@PathVariable String serviceType) {
+        return userRepository.findByRoleAndServiceType(Role.SERVICE_PROVIDER, serviceType);
+    }
+
+    // ✅ New API: Fetch service provider details by ID
+    @GetMapping("/details/{id}")
+    public ResponseEntity<User> getProviderDetails(@PathVariable Long id) {
+        Optional<User> provider = userRepository.findById(id);
+
+        if (provider.isPresent()) {
+            return ResponseEntity.ok(provider.get());
+        } else {
+            return ResponseEntity.status(404).body(null); // Return 404 if provider not found
+        }
+    }
+}

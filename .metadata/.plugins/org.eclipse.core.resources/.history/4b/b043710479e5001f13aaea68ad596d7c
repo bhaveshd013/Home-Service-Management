@@ -1,0 +1,161 @@
+package com.home.service.controller;
+
+import com.home.service.model.Booking;
+import com.home.service.model.User;
+import com.home.service.repository.BookingRepository;
+import com.home.service.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/bookings")
+//@CrossOrigin(origins = "http://localhost:5173")
+public class BookingController {
+
+    @Autowired
+    private BookingRepository bookingRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    // ✅ Create a new booking
+    @PostMapping("/create")
+    public ResponseEntity<String> createBooking(@RequestBody Booking booking) {
+        System.out.println("Received booking request: " + booking); // ✅ Debugging Log
+
+        // ✅ Validate customer & provider presence
+        if (booking.getCustomer() == null || booking.getCustomer().getId() == null) {
+            return ResponseEntity.badRequest().body("Customer ID is missing.");
+        }
+
+        if (booking.getProvider() == null || booking.getProvider().getId() == null) {
+            return ResponseEntity.badRequest().body("Provider ID is missing.");
+        }
+
+        Optional<User> customer = userRepository.findById(booking.getCustomer().getId());
+        Optional<User> provider = userRepository.findById(booking.getProvider().getId());
+
+        if (customer.isPresent() && provider.isPresent()) {
+            // ✅ Check if provider is available for the selected date and time
+            boolean isAvailable = bookingRepository
+                .findByProviderIdAndDateAndTimeSlot(booking.getProvider().getId(), booking.getDate(), booking.getTimeSlot())
+                .isEmpty();
+
+            if (!isAvailable) {
+                return ResponseEntity.status(400).body("Service provider is not available at this time.");
+            }
+
+            // ✅ Set status and save booking
+            booking.setStatus("Pending");
+            bookingRepository.save(booking);
+            return ResponseEntity.ok("Booking successful!");
+        } else {
+            return ResponseEntity.status(400).body("Invalid customer or provider.");
+        }
+    }
+
+    // ✅ Get bookings for a customer
+    @GetMapping("/customer/{customerId}")
+    public List<Booking> getCustomerBookings(@PathVariable Long customerId) {
+        return bookingRepository.findByCustomerId(customerId);
+    }
+    
+ // ✅ Get new (pending) bookings for a service provider
+    @GetMapping("/provider/{providerId}/new-requests")
+    public List<Booking> getNewRequests(@PathVariable Long providerId) {
+        // Fetch only bookings that are "Pending"
+        return bookingRepository.findByProviderIdAndStatus(providerId, "Pending");
+    }
+
+
+    // ✅ Get bookings for a service provider
+    @GetMapping("/provider/{providerId}/current")
+    public List<Booking> getCurrentBookings(@PathVariable Long providerId) {
+        return bookingRepository.findByProviderIdAndStatus(providerId, "Pending");
+    }
+
+    @GetMapping("/provider/{providerId}/completed")
+    public List<Booking> getCompletedBookings(@PathVariable Long providerId) {
+        return bookingRepository.findByProviderIdAndStatus(providerId, "Completed");
+    }
+
+    // ✅ Get all bookings for Admin
+    @GetMapping("/admin/all")
+    public List<Booking> getAllBookings() {
+        return bookingRepository.findAll();
+    }
+    
+    // ✅ Get Customer Booking Statistics
+    @GetMapping("/customer/{customerId}/stats")
+    public ResponseEntity<Map<String, Object>> getCustomerBookingStats(@PathVariable Long customerId) {
+        List<Booking> allBookings = bookingRepository.findByCustomerId(customerId);
+        List<Booking> completedBookings = bookingRepository.findByCustomerIdAndStatus(customerId, "Completed");
+        List<Booking> pendingBookings = bookingRepository.findByCustomerIdAndStatus(customerId, "Pending");
+
+        double amountSpent = completedBookings.stream()
+                .mapToDouble(booking -> booking.getProvider() != null ? booking.getProvider().getVisitingCharges() : 0.0)
+                .sum();
+        
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("total", allBookings.size());
+        stats.put("completed", completedBookings.size());
+        stats.put("pending", pendingBookings.size());
+        stats.put("amountSpent", amountSpent);
+        stats.put("upcomingServices", pendingBookings);
+
+        return ResponseEntity.ok(stats);
+    }
+    
+ // ✅ Accept a booking request
+    @PutMapping("/provider/{providerId}/accept/{bookingId}")
+    public ResponseEntity<String> acceptBooking(@PathVariable Long providerId, @PathVariable Long bookingId) {
+        Optional<Booking> bookingOpt = bookingRepository.findById(bookingId);
+
+        if (bookingOpt.isPresent()) {
+            Booking booking = bookingOpt.get();
+
+            // Ensure that the service provider is the one handling the request
+            if (!booking.getProvider().getId().equals(providerId)) {
+                return ResponseEntity.status(403).body("You are not authorized to accept this booking.");
+            }
+
+            // Update status to 'Accepted'
+            booking.setStatus("Accepted");
+            bookingRepository.save(booking);
+
+            return ResponseEntity.ok("Booking accepted successfully.");
+        } else {
+            return ResponseEntity.status(404).body("Booking not found.");
+        }
+    }
+
+    // ✅ Reject a booking request
+    @PutMapping("/provider/{providerId}/reject/{bookingId}")
+    public ResponseEntity<String> rejectBooking(@PathVariable Long providerId, @PathVariable Long bookingId) {
+        Optional<Booking> bookingOpt = bookingRepository.findById(bookingId);
+
+        if (bookingOpt.isPresent()) {
+            Booking booking = bookingOpt.get();
+
+            // Ensure that the service provider is the one handling the request
+            if (!booking.getProvider().getId().equals(providerId)) {
+                return ResponseEntity.status(403).body("You are not authorized to reject this booking.");
+            }
+
+            // Update status to 'Rejected'
+            booking.setStatus("Rejected");
+            bookingRepository.save(booking);
+
+            return ResponseEntity.ok("Booking rejected successfully.");
+        } else {
+            return ResponseEntity.status(404).body("Booking not found.");
+        }
+    }
+
+}

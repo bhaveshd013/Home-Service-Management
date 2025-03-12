@@ -1,0 +1,22 @@
+package com.home.service.controller;
+
+import com.home.service.model.User;
+import com.home.service.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/service-providers")
+@CrossOrigin(origins = "http://localhost:5173")
+public class ServiceProviderController {
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @GetMapping("/{serviceType}")
+    public List<User> getServiceProviders(@PathVariable String serviceType) {
+        return userRepository.findByRoleAndServiceType("SERVICE_PROVIDER", serviceType);
+    }
+}

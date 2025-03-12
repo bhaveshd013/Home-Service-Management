@@ -1,0 +1,5 @@
+package com.home.service.repository;
+
+public interface AdminRepository {
+
+}

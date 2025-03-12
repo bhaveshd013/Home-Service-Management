@@ -1,0 +1,32 @@
+/* Hero Section */
+.hero {
+    background: url('https://source.unsplash.com/1600x900/?home,services') no-repeat center center/cover;
+    height: 60vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .hero h1 {
+    font-size: 3rem;
+    font-weight: bold;
+  }
+  
+  .hero p {
+    font-size: 1.2rem;
+  }
+  
+  /* About Us Section */
+  .about-us {
+    background: #f8f9fa;
+    padding: 40px 20px;
+  }
+  
+  .about-us h2 {
+    font-weight: bold;
+  }
+  
+  .about-us p {
+    font-size: 1.1rem;
+  }
+  

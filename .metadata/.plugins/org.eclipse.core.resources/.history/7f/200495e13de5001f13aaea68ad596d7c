@@ -1,0 +1,106 @@
+package com.home.service.controller;
+
+import com.home.service.model.Booking;
+import com.home.service.model.User;
+import com.home.service.repository.BookingRepository;
+import com.home.service.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/bookings")
+@CrossOrigin(origins = "http://localhost:5173")
+public class BookingController {
+
+    @Autowired
+    private BookingRepository bookingRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    // ✅ Create a new booking
+    @PostMapping("/create")
+    public ResponseEntity<String> createBooking(@RequestBody Booking booking) {
+        System.out.println("Received booking request: " + booking); // ✅ Debugging Log
+
+        // ✅ Validate customer & provider presence
+        if (booking.getCustomer() == null || booking.getCustomer().getId() == null) {
+            return ResponseEntity.badRequest().body("Customer ID is missing.");
+        }
+
+        if (booking.getProvider() == null || booking.getProvider().getId() == null) {
+            return ResponseEntity.badRequest().body("Provider ID is missing.");
+        }
+
+        Optional<User> customer = userRepository.findById(booking.getCustomer().getId());
+        Optional<User> provider = userRepository.findById(booking.getProvider().getId());
+
+        if (customer.isPresent() && provider.isPresent()) {
+            // ✅ Check if provider is available for the selected date and time
+            boolean isAvailable = bookingRepository
+                .findByProviderIdAndDateAndTimeSlot(booking.getProvider().getId(), booking.getDate(), booking.getTimeSlot())
+                .isEmpty();
+
+            if (!isAvailable) {
+                return ResponseEntity.status(400).body("Service provider is not available at this time.");
+            }
+
+            // ✅ Set status and save booking
+            booking.setStatus("Pending");
+            bookingRepository.save(booking);
+            return ResponseEntity.ok("Booking successful!");
+        } else {
+            return ResponseEntity.status(400).body("Invalid customer or provider.");
+        }
+    }
+
+    // ✅ Get bookings for a customer
+    @GetMapping("/customer/{customerId}")
+    public List<Booking> getCustomerBookings(@PathVariable Long customerId) {
+        return bookingRepository.findByCustomerId(customerId);
+    }
+
+    // ✅ Get bookings for a service provider
+    @GetMapping("/provider/{providerId}/current")
+    public List<Booking> getCurrentBookings(@PathVariable Long providerId) {
+        return bookingRepository.findByProviderIdAndStatus(providerId, "Pending");
+    }
+
+    @GetMapping("/provider/{providerId}/completed")
+    public List<Booking> getCompletedBookings(@PathVariable Long providerId) {
+        return bookingRepository.findByProviderIdAndStatus(providerId, "Completed");
+    }
+
+    // ✅ Get all bookings for Admin
+    @GetMapping("/admin/all")
+    public List<Booking> getAllBookings() {
+        return bookingRepository.findAll();
+    }
+
+    // ✅ Get Customer Booking Statistics
+    @GetMapping("/customer/{customerId}/stats")
+    public ResponseEntity<Map<String, Object>> getCustomerBookingStats(@PathVariable Long customerId) {
+        List<Booking> allBookings = bookingRepository.findByCustomerId(customerId);
+        List<Booking> completedBookings = bookingRepository.findByProviderIdAndStatus(customerId, "Completed");
+        List<Booking> pendingBookings = bookingRepository.findByProviderIdAndStatus(customerId, "Pending");
+
+        double amountSpent = completedBookings.stream()
+                .mapToDouble(booking -> booking.getProvider() != null ? booking.getProvider().getVisitingCharges() : 0.0)
+                .sum();
+        
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("total", allBookings.size());
+        stats.put("completed", completedBookings.size());
+        stats.put("pending", pendingBookings.size());
+        stats.put("amountSpent", amountSpent);
+        stats.put("upcomingServices", pendingBookings);
+
+        return ResponseEntity.ok(stats);
+    }
+}
